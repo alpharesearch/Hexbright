@@ -36,14 +36,15 @@
 #define MODE_OFF_PREVIEW        1
 #define MODE_AUTO_TILT          2
 #define MODE_AUTO_ROLL          3
-#define MODE_LOW                4
-#define MODE_MED                5
-#define MODE_HIGH               6
-#define MODE_BLINKING           7
-#define MODE_ABLINKING_PREVIEW  8
-#define MODE_DAZZLING           9
-#define MODE_AUTO_BLINKING      10
-#define MODE_AUTO_BLINKING_SET  11
+#define MODE_AUTO_ROLL_SET      4
+#define MODE_LOW                5
+#define MODE_MED                6
+#define MODE_HIGH               7
+#define MODE_BLINKING           8
+#define MODE_ABLINKING_PREVIEW  9
+#define MODE_DAZZLING           10
+#define MODE_AUTO_BLINKING      11
+#define MODE_AUTO_BLINKING_SET  12
 // State
 byte mode = 0;
 unsigned long btnTime = 0;
@@ -108,7 +109,7 @@ void loop()
   static unsigned long lastTime, lastTempTime, lastAccTime;
   unsigned long time = millis();
   static byte blink, bright_debug;
-  static int blinkRate;
+  static int setValue;
   float angle;
   
   // Check the state of the charge controller
@@ -331,7 +332,9 @@ void loop()
     }
     Serial.print("\2map = ");
     Serial.println(angle);
-    analogWrite(DPIN_DRV_EN, angle);
+    setValue=angle;
+  case MODE_AUTO_ROLL_SET:  
+    analogWrite(DPIN_DRV_EN, setValue);
   break; 
   case MODE_BLINKING:
     if (time-lastTime < 250) break;
@@ -363,9 +366,9 @@ void loop()
     angle = map(angle, 5, 170, 20, 300);
     Serial.print("map = ");
     Serial.println(angle);
-    blinkRate=angle;
+    setValue=angle;
   case MODE_AUTO_BLINKING_SET:
-    if (time-lastTime < blinkRate) break;
+    if (time-lastTime < setValue) break;
     lastTime = time;
     blink = !blink;
     digitalWrite(DPIN_DRV_EN, blink);
@@ -395,6 +398,12 @@ void loop()
       newMode = MODE_OFF_PREVIEW;
     break;
   case MODE_AUTO_ROLL:
+    if (btnDown && !newBtnDown && (time-btnTime)>50)
+      newMode = MODE_AUTO_ROLL_SET;
+    if (btnDown && newBtnDown && (time-btnTime)>500)
+      newMode = MODE_OFF_PREVIEW;
+    break;
+   case MODE_AUTO_ROLL_SET:
     if (btnDown && !newBtnDown && (time-btnTime)>50)
       newMode = MODE_LOW;
     if (btnDown && newBtnDown && (time-btnTime)>500)
