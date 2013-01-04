@@ -44,15 +44,16 @@
 #define MODE_BLINKING           8
 #define MODE_ABLINKING_PREVIEW  9
 #define MODE_DAZZLING           10
-#define MODE_AUTO_BLINKING      11
-#define MODE_AUTO_BLINKING_SET  12
-#define MODE_PROG               13
-#define MODE_PROG_PREVIEW       14
-#define MODE_PROG_A             15
-#define MODE_PROG_B             16
-#define MODE_PROG_CANCEL        17
-#define MODE_PROG_SET           18
-#define MODE_PROG_SET_PREVIEW   19
+#define MODE_DAZZLING_PREVIEW   11   
+#define MODE_AUTO_BLINKING      12
+#define MODE_AUTO_BLINKING_SET  13
+#define MODE_PROG               14
+#define MODE_PROG_PREVIEW       15
+#define MODE_PROG_A             16
+#define MODE_PROG_B             17
+#define MODE_PROG_CANCEL        18
+#define MODE_PROG_SET           19
+#define MODE_PROG_SET_PREVIEW   20
 // State
 byte mode = 0;
 unsigned long btnTime = 0;
@@ -391,19 +392,19 @@ void loop()
     digitalWrite(DPIN_DRV_EN, blink);
     break;
   case MODE_PROG_B:
-    if (time-lastTime < 500) break;
+    if (time-lastTime < 400) break;
     lastTime = time;
     blink = !blink;
     digitalWrite(DPIN_DRV_EN, blink);
     break;
   case MODE_PROG_CANCEL:
-    if (time-lastTime < 300) break;
+    if (time-lastTime < 700) break;
     lastTime = time;
     blink = !blink;
     digitalWrite(DPIN_DRV_EN, blink);
     break;
   case MODE_PROG_SET:
-    if (time-lastTime < 1000) break;
+    if (time-lastTime < 1100) break;
     lastTime = time;
     blink = !blink;
     digitalWrite(DPIN_DRV_EN, blink);
@@ -430,7 +431,7 @@ void loop()
       if (btnDown && !newBtnDown && (time-btnTime)>20)
         newMode = MODE_LOW;
       if (btnDown && newBtnDown && (time-btnTime)>500)
-        newMode = MODE_DAZZLING;
+        newMode = MODE_DAZZLING_PREVIEW;
     }
     else
     {
@@ -497,6 +498,11 @@ void loop()
       newMode = MODE_OFF_PREVIEW;
     break;
 
+  case MODE_DAZZLING_PREVIEW:
+    // This mode exists just to ignore this button release.
+    if (btnDown && !newBtnDown)
+      newMode = MODE_DAZZLING;
+    break;
   case MODE_DAZZLING:
     if (btnDown && !newBtnDown && (time-btnTime)>50)
       newMode = MODE_BLINKING;
@@ -559,7 +565,14 @@ void loop()
     switch (newMode)
     {
     case MODE_PROG:
+      pinMode(DPIN_GLED, OUTPUT);
       digitalWrite(DPIN_GLED, HIGH);
+      Serial.println("Prog Mode");
+      pinMode(DPIN_PWR, OUTPUT);
+      digitalWrite(DPIN_PWR, HIGH);
+      digitalWrite(DPIN_DRV_MODE, LOW);
+      analogWrite(DPIN_DRV_EN, 40);
+      break;
     case MODE_OFF:
     case MODE_OFF_PREVIEW:
       Serial.println("Mode = off or off preview");
@@ -658,3 +671,6 @@ float readTiltAngle(int angle) //Z maybe 1
   readAccel(acc);
   return acos(acc[angle]/(sqrt(pow(acc[0],2)+pow(acc[1],2)+pow(acc[2],2)))) * 180 / 3.14159265;
 }
+
+
+
