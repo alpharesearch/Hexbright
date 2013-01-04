@@ -7,6 +7,7 @@
 
 #include <math.h>
 #include <Wire.h>
+#include <EEPROM.h>
 
 // Settings
 #define OVERTEMP                340
@@ -45,6 +46,13 @@
 #define MODE_DAZZLING           10
 #define MODE_AUTO_BLINKING      11
 #define MODE_AUTO_BLINKING_SET  12
+#define MODE_PROG               13
+#define MODE_PROG_PREVIEW       14
+#define MODE_PROG_A             15
+#define MODE_PROG_B             16
+#define MODE_PROG_CANCEL        17
+#define MODE_PROG_SET           18
+#define MODE_PROG_SET_PREVIEW   19
 // State
 byte mode = 0;
 unsigned long btnTime = 0;
@@ -57,6 +65,8 @@ int index = 0;                  // the index of the current reading
 int total = 0;                  // the running total
 int average = 0;                // the average
 float smoothedVal;
+
+int epromBasicMode;
 
 void setup()
 {
@@ -100,7 +110,8 @@ void setup()
   btnDown = digitalRead(DPIN_RLED_SW);
   mode = MODE_OFF;
   for (int thisReading = 0; thisReading < numReadings; thisReading++)
-    readings[thisReading] = 0; 
+    readings[thisReading] = 0;
+  epromBasicMode = EEPROM.read(0);
   Serial.println("Powered up!");
 }
 
@@ -372,7 +383,31 @@ void loop()
     lastTime = time;
     blink = !blink;
     digitalWrite(DPIN_DRV_EN, blink);
-  break;  
+    break;
+  case MODE_PROG_A:
+    if (time-lastTime < 100) break;
+    lastTime = time;
+    blink = !blink;
+    digitalWrite(DPIN_DRV_EN, blink);
+    break;
+  case MODE_PROG_B:
+    if (time-lastTime < 500) break;
+    lastTime = time;
+    blink = !blink;
+    digitalWrite(DPIN_DRV_EN, blink);
+    break;
+  case MODE_PROG_CANCEL:
+    if (time-lastTime < 300) break;
+    lastTime = time;
+    blink = !blink;
+    digitalWrite(DPIN_DRV_EN, blink);
+    break;
+  case MODE_PROG_SET:
+    if (time-lastTime < 1000) break;
+    lastTime = time;
+    blink = !blink;
+    digitalWrite(DPIN_DRV_EN, blink);
+    break;
   }
   
   // Periodically pull down the button's pin, since
@@ -385,18 +420,27 @@ void loop()
   byte newBtnDown = digitalRead(DPIN_RLED_SW);
   switch (mode)
   {
+  case MODE_OFF_PREVIEW:
+    // This mode exists just to ignore this button release.
+    if (btnDown && !newBtnDown)
+      newMode = MODE_OFF;
+    break;
   case MODE_OFF:
-    if (btnDown && !newBtnDown && (time-btnTime)>20)
-      newMode = MODE_AUTO_TILT;
-    if (btnDown && newBtnDown && (time-btnTime)>500)
-      newMode = MODE_ABLINKING_PREVIEW;
+    if (epromBasicMode){
+      if (btnDown && !newBtnDown && (time-btnTime)>20)
+        newMode = MODE_LOW;
+      if (btnDown && newBtnDown && (time-btnTime)>500)
+        newMode = MODE_DAZZLING;
+    }
+    else
+    {
+      if (btnDown && !newBtnDown && (time-btnTime)>20)
+        newMode = MODE_AUTO_ROLL;
+      if (btnDown && newBtnDown && (time-btnTime)>500)
+        newMode = MODE_ABLINKING_PREVIEW;
+    }
     break;
-  case MODE_AUTO_TILT:
-    if (btnDown && !newBtnDown && (time-btnTime)>50)
-      newMode = MODE_AUTO_ROLL;
-    if (btnDown && newBtnDown && (time-btnTime)>500)
-      newMode = MODE_OFF_PREVIEW;
-    break;
+  //advanced section
   case MODE_AUTO_ROLL:
     if (btnDown && !newBtnDown && (time-btnTime)>50)
       newMode = MODE_AUTO_ROLL_SET;
@@ -405,10 +449,17 @@ void loop()
     break;
    case MODE_AUTO_ROLL_SET:
     if (btnDown && !newBtnDown && (time-btnTime)>50)
+      newMode = MODE_AUTO_TILT;
+    if (btnDown && newBtnDown && (time-btnTime)>500)
+      newMode = MODE_OFF_PREVIEW;
+    break;
+  case MODE_AUTO_TILT:
+    if (btnDown && !newBtnDown && (time-btnTime)>50)
       newMode = MODE_LOW;
     if (btnDown && newBtnDown && (time-btnTime)>500)
       newMode = MODE_OFF_PREVIEW;
     break;
+  //basic and advanced section
   case MODE_LOW:
     if (btnDown && !newBtnDown && (time-btnTime)>50)
       newMode = MODE_MED;
@@ -427,11 +478,7 @@ void loop()
     if (btnDown && newBtnDown && (time-btnTime)>500)
       newMode = MODE_OFF_PREVIEW;
     break;
-  case MODE_OFF_PREVIEW:
-    // This mode exists just to ignore this button release.
-    if (btnDown && !newBtnDown)
-      newMode = MODE_OFF;
-    break;
+
   case MODE_ABLINKING_PREVIEW:
     // This mode exists just to ignore this button release.
     if (btnDown && !newBtnDown)
@@ -449,13 +496,56 @@ void loop()
     if (btnDown && newBtnDown && (time-btnTime)>500)
       newMode = MODE_OFF_PREVIEW;
     break;
+
   case MODE_DAZZLING:
     if (btnDown && !newBtnDown && (time-btnTime)>50)
       newMode = MODE_BLINKING;
     if (btnDown && newBtnDown && (time-btnTime)>500)
       newMode = MODE_OFF_PREVIEW;
     break;
+
   case MODE_BLINKING:
+    if (btnDown && !newBtnDown && (time-btnTime)>50)
+      newMode = MODE_OFF;
+    if (btnDown && newBtnDown && (time-btnTime)>500)
+      newMode = MODE_PROG_PREVIEW;
+    break;
+
+  case MODE_PROG:
+    if (btnDown && !newBtnDown && (time-btnTime)>50)
+      newMode = MODE_PROG_A;
+    if (btnDown && newBtnDown && (time-btnTime)>500)
+      newMode = MODE_OFF_PREVIEW;
+    break;
+  case MODE_PROG_PREVIEW:
+    // This mode exists just to ignore this button release.
+    if (btnDown && !newBtnDown)
+      newMode = MODE_PROG;
+    break;
+  case MODE_PROG_A:
+    if (btnDown && !newBtnDown && (time-btnTime)>50)
+      newMode = MODE_PROG_B;
+    if (btnDown && newBtnDown && (time-btnTime)>500)
+      newMode = MODE_PROG_SET_PREVIEW;
+    break;
+  case MODE_PROG_B:
+    if (btnDown && !newBtnDown && (time-btnTime)>50)
+      newMode = MODE_PROG_CANCEL;
+    if (btnDown && newBtnDown && (time-btnTime)>500)
+      newMode = MODE_PROG_SET_PREVIEW;
+    break;
+  case MODE_PROG_CANCEL:
+    if (btnDown && !newBtnDown && (time-btnTime)>50)
+      newMode = MODE_PROG_A;
+    if (btnDown && newBtnDown && (time-btnTime)>500)
+      newMode = MODE_OFF_PREVIEW;
+    break;
+  case MODE_PROG_SET_PREVIEW:
+    // This mode exists just to ignore this button release.
+    if (btnDown && !newBtnDown)
+      newMode = MODE_PROG_SET;
+    break;
+  case MODE_PROG_SET:
     if (btnDown && !newBtnDown && (time-btnTime)>50)
       newMode = MODE_OFF;
     if (btnDown && newBtnDown && (time-btnTime)>500)
@@ -468,6 +558,8 @@ void loop()
   {
     switch (newMode)
     {
+    case MODE_PROG:
+      digitalWrite(DPIN_GLED, HIGH);
     case MODE_OFF:
     case MODE_OFF_PREVIEW:
       Serial.println("Mode = off or off preview");
@@ -476,10 +568,22 @@ void loop()
       digitalWrite(DPIN_DRV_MODE, LOW);
       digitalWrite(DPIN_DRV_EN, LOW);
       break;
+    case MODE_PROG_A:
+      epromBasicMode = true;
+      Serial.println("Mode epromBasicMode true");
+      pinMode(DPIN_PWR, OUTPUT);
+      digitalWrite(DPIN_PWR, HIGH);
+      digitalWrite(DPIN_DRV_MODE, LOW);
+      analogWrite(DPIN_DRV_EN, 50);
+      break;
+    case MODE_PROG_B:
+      epromBasicMode = false;
+      break;
+    case MODE_PROG_CANCEL:
     case MODE_AUTO_TILT:
     case MODE_AUTO_ROLL:  
     case MODE_LOW:
-      Serial.println("Mode = low or auto");
+      Serial.println("Mode = low or auto or MODE_PROG_OFF");
       pinMode(DPIN_PWR, OUTPUT);
       digitalWrite(DPIN_PWR, HIGH);
       digitalWrite(DPIN_DRV_MODE, LOW);
@@ -508,6 +612,9 @@ void loop()
       pinMode(DPIN_PWR, OUTPUT);
       digitalWrite(DPIN_PWR, HIGH);
       digitalWrite(DPIN_DRV_MODE, HIGH);
+      break;
+    case MODE_PROG_SET_PREVIEW:
+      EEPROM.write(0, epromBasicMode);
       break;
     }
     mode = newMode;
