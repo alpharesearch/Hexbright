@@ -8,6 +8,7 @@
 #include <math.h>
 #include <Wire.h>
 #include <EEPROM.h>
+#include <avr/eeprom.h>
 
 // Settings
 #define OVERTEMP                340
@@ -33,32 +34,35 @@
 #define INT_SW                  0
 #define INT_ACC                 1
 // Modes
-#define MODE_OFF                0
-#define MODE_OFF_PREVIEW        1
+#define MODE_OFF_PREVIEW        0
+#define MODE_OFF                1
 #define MODE_AUTO_TILT          2
 #define MODE_AUTO_ROLL          3
 #define MODE_AUTO_ROLL_SET      4
 #define MODE_LOW                5
 #define MODE_MED                6
 #define MODE_HIGH               7
-#define MODE_BLINKING           8
-#define MODE_ABLINKING_PREVIEW  9
-#define MODE_DAZZLING           10
-#define MODE_DAZZLING_PREVIEW   11   
+#define MODE_ABLINKING_PREVIEW  8
+#define MODE_BLINKING           9
+#define MODE_DAZZLING_PREVIEW   10
+#define MODE_DAZZLING           11
 #define MODE_AUTO_BLINKING      12
 #define MODE_AUTO_BLINKING_SET  13
-#define MODE_PROG               14
-#define MODE_PROG_PREVIEW       15
+#define MODE_PROG_PREVIEW       14
+#define MODE_PROG               15
 #define MODE_PROG_A             16
 #define MODE_PROG_B             17
 #define MODE_PROG_CANCEL        18
-#define MODE_PROG_SET           19
-#define MODE_PROG_SET_PREVIEW   20
+#define MODE_PROG_SET_PREVIEW   19
+#define MODE_PROG_SET           20
+
 // State
-byte mode = 0;
+byte mode = MODE_OFF;
 unsigned long btnTime = 0;
 boolean btnDown = false;
 boolean accelDebug = false;
+boolean powerdUp = false;
+int setValue = 0;
 //sensor smoothing 
 const int numReadings = 25;
 int readings[numReadings];      // the readings from the analog input
@@ -113,7 +117,19 @@ void setup()
   for (int thisReading = 0; thisReading < numReadings; thisReading++)
     readings[thisReading] = 0;
   epromBasicMode = EEPROM.read(0);
-  Serial.println("Powered up!");
+  mode = EEPROM.read(1);
+  if(mode==0 || mode>13) mode = MODE_OFF;
+  {
+  int addr = 2;
+  setValue = eeprom_read_word( (unsigned uint16_t *) addr);
+  }
+  Serial.print("Powered up! epromBasicMode: ");
+  Serial.print(epromBasicMode);
+  Serial.print(" mode: ");
+  Serial.print(mode);
+  Serial.print(" setValue: ");
+  Serial.println(setValue);
+  if (btnDown) powerdUp=true;
 }
 
 void loop()
@@ -121,7 +137,6 @@ void loop()
   static unsigned long lastTime, lastTempTime, lastAccTime;
   unsigned long time = millis();
   static byte blink, bright_debug;
-  static int setValue;
   float angle;
   
   // Check the state of the charge controller
@@ -136,10 +151,11 @@ void loop()
   }
   else // Hi-Z - shutdown
   {
-    digitalWrite(DPIN_GLED, LOW);    
+    if(mode==MODE_OFF)digitalWrite(DPIN_GLED, LOW);    
   }
   
   // Check the serial port
+  /*
   if (Serial.available())
   {
     char c = Serial.read();
@@ -204,6 +220,7 @@ void loop()
     break;
     }
   }
+  */
   
   // Check the temperature sensor
   if (time-lastTempTime > 1000)
@@ -418,13 +435,20 @@ void loop()
   
   // Check for mode changes
   byte newMode = mode;
+  if(powerdUp)
+  {
+    powerdUp=false;
+    mode=0;
+    if(newMode>1)newMode--;
+  }
+  
   byte newBtnDown = digitalRead(DPIN_RLED_SW);
   switch (mode)
   {
   case MODE_OFF_PREVIEW:
     // This mode exists just to ignore this button release.
     if (btnDown && !newBtnDown)
-      newMode = MODE_OFF;
+      newMode = MODE_OFF_PREVIEW;
     break;
   case MODE_OFF:
     if (epromBasicMode){
@@ -573,9 +597,22 @@ void loop()
       digitalWrite(DPIN_DRV_MODE, LOW);
       analogWrite(DPIN_DRV_EN, 40);
       break;
-    case MODE_OFF:
     case MODE_OFF_PREVIEW:
-      Serial.println("Mode = off or off preview");
+      EEPROM.write(1, mode); // need to read here to see if changed
+      {
+      int addr = 2;
+      eeprom_write_word( (unsigned uint16_t *) addr, setValue);
+      }
+      Serial.println("Mode = off preview");
+      pinMode(DPIN_PWR, OUTPUT);
+      digitalWrite(DPIN_PWR, LOW);
+      digitalWrite(DPIN_DRV_MODE, LOW);
+      digitalWrite(DPIN_DRV_EN, LOW);
+      break;
+    case MODE_OFF:
+      EEPROM.write(1, 0);
+      EEPROM.write(2, 0);
+      Serial.println("Mode = off");
       pinMode(DPIN_PWR, OUTPUT);
       digitalWrite(DPIN_PWR, LOW);
       digitalWrite(DPIN_DRV_MODE, LOW);
