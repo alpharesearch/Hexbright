@@ -42,12 +42,12 @@
 #define MODE_LOW                5
 #define MODE_MED                6
 #define MODE_HIGH               7
-#define MODE_ABLINKING_PREVIEW  8
-#define MODE_BLINKING           9
-#define MODE_DAZZLING_PREVIEW   10
-#define MODE_DAZZLING           11
-#define MODE_AUTO_BLINKING      12
-#define MODE_AUTO_BLINKING_SET  13
+#define MODE_LONGPRESS_PREVIEW  8
+#define MODE_AUTO_BLINKING      9
+#define MODE_AUTO_BLINKING_SET  10
+#define MODE_DAZZLING_PREVIEW   11
+#define MODE_DAZZLING           12
+#define MODE_BLINKING           13
 #define MODE_PROG_PREVIEW       14
 #define MODE_PROG               15
 #define MODE_PROG_A             16
@@ -376,7 +376,7 @@ void loop()
     lastTime = time;
     digitalWrite(DPIN_DRV_EN, random(4)<1);
   break;
-  case MODE_ABLINKING_PREVIEW:
+  case MODE_LONGPRESS_PREVIEW:
   case MODE_AUTO_BLINKING:
     //sensor smoothing
     total = total - readings[index];         
@@ -462,7 +462,7 @@ void loop()
       if (btnDown && !newBtnDown && (time-btnTime)>20)
         newMode = MODE_AUTO_ROLL;
       if (btnDown && newBtnDown && (time-btnTime)>500)
-        newMode = MODE_ABLINKING_PREVIEW;
+        newMode = MODE_LONGPRESS_PREVIEW;
     }
     break;
   //advanced section
@@ -504,7 +504,7 @@ void loop()
       newMode = MODE_OFF_PREVIEW;
     break;
 
-  case MODE_ABLINKING_PREVIEW:
+  case MODE_LONGPRESS_PREVIEW:
     // This mode exists just to ignore this button release.
     if (btnDown && !newBtnDown)
       newMode = MODE_AUTO_BLINKING;
@@ -653,7 +653,7 @@ void loop()
       digitalWrite(DPIN_DRV_MODE, HIGH);
       analogWrite(DPIN_DRV_EN, 255);
       break;
-    case MODE_ABLINKING_PREVIEW:
+    case MODE_LONGPRESS_PREVIEW:
     case MODE_AUTO_BLINKING:
     case MODE_AUTO_BLINKING_SET:
     case MODE_BLINKING:
